@@ -7,7 +7,7 @@ from mongoengine import FieldDoesNotExist, NotUniqueError, DoesNotExist
 
 from errors import NoAuthorizationError, InternalServerError, SchemaValidationError, EmailAlreadyExistsError, \
      UpdatingUserError, ResetPasswordFieldError, UnauthorizedError, ExpiredSignatureError, \
-    UnboundLocalError
+    UnboundLocalError, InvalidRolesError
 from models.User import User
 
 
@@ -58,8 +58,6 @@ class UserService():
             newHashPassword = generate_password_hash(body.get('newPassword')).decode('utf8')
             User.objects.get(username=data).update(password=newHashPassword)
             return Response("password changed successfully", mimetype='application/json', status=200)
-        except UnauthorizedError:
-            raise UnauthorizedError
         except DoesNotExist:
             raise UpdatingUserError
         
@@ -74,9 +72,10 @@ class UserService():
             userbyId = User.objects.exclude('password').get(id=id)
             data = get_jwt_identity()
             user = User.objects().get(username=data)
-            if 'ADMIN' in get_jwt_claims()['roles'] or 'SUPER' in get_jwt_claims()['roles'] or userbyId['username'] == user['username']:
-                userbyId = userbyId.to_json()
-                return Response(userbyId, mimetype='application/json', status=200)
+            if 'ADMIN' not in get_jwt_claims()['roles'] or 'SUPER' not in get_jwt_claims()['roles'] or userbyId['username'] != user['username']:
+                raise InvalidRolesError
+            userbyId = userbyId.to_json()
+            return Response(userbyId, mimetype='application/json', status=200)
 
         
     def editUserById(id):

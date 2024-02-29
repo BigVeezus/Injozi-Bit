@@ -17,7 +17,8 @@ class User2Api(Resource):
     @jwt_required
     def get(self):
         try:
-             if 'SUPER' in get_jwt_claims()['roles']:
+                if 'SUPER' not in get_jwt_claims()['roles']:
+                    raise InvalidRolesError
                 return UserService.getAllUsers()
         except InternalServerError:
             raise InternalServerError
@@ -25,8 +26,11 @@ class User2Api(Resource):
     @jwt_required
     def post(self):
         try:
-            if 'ADMIN' in get_jwt_claims()['roles'] or 'SUPER' in get_jwt_claims()['roles']:
-                return UserService.createNewUser()
+            if 'ADMIN' not in get_jwt_claims()['roles'] and 'SUPER' not in get_jwt_claims()['roles']:
+                raise InvalidRolesError
+            return UserService.createNewUser()
+        except InvalidRolesError:
+            raise InvalidRolesError
         except Exception:
             raise InternalServerError
 
@@ -38,6 +42,8 @@ class UserPasswordReset(Resource):
             return UserService.changePassWord()
         except UnauthorizedError:
             raise UnauthorizedError
+        except UpdatingUserError:
+            raise UpdatingUserError
         except Exception:
             raise InternalServerError
 
@@ -64,6 +70,8 @@ class UserApi(Resource):
             return UserService.getUserById(id)
         except NoAuthorizationError:
             raise NoAuthorizationError
+        except InvalidRolesError:
+            raise InvalidRolesError
         except DoesNotExist:
             raise UserNotExistsError
         except Exception:
